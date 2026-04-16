@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🌸 末日全能追蹤 - 活動版</title>
+    <title>🌸末日任務</title>
     
     <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAYAAACov6OfAAAACXBIWXMAAAsTAAALEwEAmpwYAAADXklEQVR4nO3bS2hTQRzH8X9S26S2SZO2SdtUfSCo6EulVvBRvCBe8IHYvSBe8IHYvSBe8IEPxF7wUfBRvCBe8FHEp760vkyTpjZp0zS2Sdv6EAmWpZfO7Oxvks8HAnmZOfzmwGQmue32+30AtvWf7gCAnAIQEwBExL8BvV4PrVYL7Xb7f79fV/L5PBRFgc/ngyAIXIdD/glomibCMITX670V0G63YRgGVFWFqqpwuxzyT8BOfD4fTNM03YbX5YIAnAIQEwBExL8B3W4XlUrlH0DTNGEvFovFf79fR9VqFdVqFbquX/uC5JKAnALkFICYACAmAIiI74A+n8+9AAsLCyiVSu5f80pLSwuKxSJyudw1YHJYQI6R74A+nw9tbW23At710vLyMhYXF6HrOnZ2dtwP5pB/ApZKJXcgYCeVSuUfQNfhkH8C7u3tuQMBO+nv74emaX99P8f9E7C/vx8DAwPweDxuwuY+AnKMfAe0LOvK8fLyMpqammAYBpRSbgZzSClFPp9HNptFe3u7m7DJPwF9Ph+KxSI6OjquAdPZ2Ymuri4Ui8V/v19HTU1NaGlpgaqq146z2Y6AHEOfmID/AQFARAAMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTAMEEwDABMEwADBMAwwTAMAEwTABMEwDDBMAwATBMAAwTANH6DT7tU6T+X6ZlAAAAAElFTkSuQmCC">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="末日追蹤">
+    <meta name="apple-mobile-web-app-title" content="末日任務">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -88,7 +88,7 @@
         function App() {
             const [groups, setGroups] = useState([]);
             const [customEventName, setCustomEventName] = useState('限定活動');
-            const [appTitle, setAppTitle] = useState('🌸 末日全能追蹤');
+            const [appTitle, setAppTitle] = useState('🌸末日任務');
             const [currentWeekType, setCurrentWeekType] = useState(CYCLE_WEEKS[0]);
             const [notification, setNotification] = useState('');
             const [showSync, setShowSync] = useState(false);
@@ -140,7 +140,7 @@
             useEffect(() => {
                 const savedRaw = localStorage.getItem(STORAGE_KEY);
                 let currentGroups = initialGroups;
-                let currentTitle = '🌸 末日全能追蹤';
+                let currentTitle = '🌸末日任務';
                 let currentCustomEvent = '限定活動';
                 let lastResetDate = "";
 
