@@ -45,7 +45,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useCallback } = React;
 
         const STORAGE_KEY = 'puzzles_survival_v9_weekly_cycle';
 
@@ -84,6 +84,13 @@
         };
 
         function App() {
+            // 優先定義輔助函式，避免 Hoisting 報錯
+            const isAccountDone = useCallback((acc) => (
+                acc.daily && acc.commander && acc.hero && acc.mall && 
+                acc.seed && acc.special && acc.event && acc.water && 
+                acc.dynamicDay && acc.customEvent
+            ), []);
+
             const [groups, setGroups] = useState([]);
             const [customEventName, setCustomEventName] = useState('限定活動');
             const [appTitle, setAppTitle] = useState('🌸 末日全能追蹤');
@@ -91,74 +98,41 @@
             const [notification, setNotification] = useState('');
             const [showSync, setShowSync] = useState(false);
             const [backupText, setBackupText] = useState('');
-            const [hideCompleted, setHideCompleted] = useState(false); // 隱藏已完成開關
+            const [hideCompleted, setHideCompleted] = useState(false);
 
-            const today = new Date();
-            const todayIndex = today.getDay();
-
-            useEffect(() => {
-                const getWeekNumber = (d) => {
-                    const date = new Date(d.getTime());
-                    date.setHours(0, 0, 0, 0);
-                    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
-                    const week1 = new Date(date.getFullYear(), 0, 4);
-                    return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-                };
-                const weekNum = getWeekNumber(today);
-                setCurrentWeekType(CYCLE_WEEKS[weekNum % 2]);
-            }, []);
+            const [todayIndex, setTodayIndex] = useState(new Date().getDay());
 
             const dayTaskName = useMemo(() => {
                 return WEEKLY_TASKS_MAP[currentWeekType][todayIndex] || "一般任務";
             }, [currentWeekType, todayIndex]);
 
-            // 計算整體進度
             const overallStats = useMemo(() => {
                 const allAccounts = groups.flatMap(g => g.accounts);
                 if (allAccounts.length === 0) return { total: 0, done: 0, percent: 0 };
-                
-                const doneCount = allAccounts.filter(acc => 
-                    acc.daily && acc.commander && acc.hero && acc.mall && 
-                    acc.seed && acc.special && acc.event && acc.water && 
-                    acc.dynamicDay && acc.customEvent
-                ).length;
+                const doneCount = allAccounts.filter(acc => isAccountDone(acc)).length;
+                return { total: allAccounts.length, done: doneCount, percent: Math.round((doneCount / allAccounts.length) * 100) };
+            }, [groups, isAccountDone]);
 
-                return {
-                    total: allAccounts.length,
-                    done: doneCount,
-                    percent: Math.round((doneCount / allAccounts.length) * 100)
-                };
-            }, [groups]);
-
-            const isAccountDone = (acc) => (
-                acc.daily && acc.commander && acc.hero && acc.mall && 
-                acc.seed && acc.special && acc.event && acc.water && 
-                acc.dynamicDay && acc.customEvent
-            );
-
-            const persist = (data) => localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             const showNotify = (msg) => { setNotification(msg); setTimeout(() => setNotification(''), 3000); };
+            
+            const persist = useCallback((data) => {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            }, []);
 
-            useEffect(() => {
+            // 核心重置邏輯：檢查是否需要換日
+            const checkAndReset = useCallback(() => {
+                const now = new Date();
+                const todayStr = now.toLocaleDateString('zh-HK');
                 const savedRaw = localStorage.getItem(STORAGE_KEY);
-                let currentGroups = initialGroups;
-                let currentTitle = '🌸 末日全能追蹤';
-                let currentCustomEvent = '限定活動';
-                let lastResetDate = "";
-
+                
+                let data = { groups: initialGroups, appTitle: '🌸 末日全能追蹤', customEventName: '限定活動', lastResetDate: "" };
                 if (savedRaw) {
-                    try {
-                        const parsed = JSON.parse(savedRaw);
-                        if (Array.isArray(parsed.groups)) currentGroups = parsed.groups;
-                        if (parsed.appTitle) currentTitle = parsed.appTitle;
-                        if (parsed.customEventName) currentCustomEvent = parsed.customEventName;
-                        if (parsed.lastResetDate) lastResetDate = parsed.lastResetDate;
-                    } catch(e) {}
+                    try { data = JSON.parse(savedRaw); } catch(e) {}
                 }
 
-                const todayStr = today.toLocaleDateString('zh-HK');
-                if (today.getHours() >= 8 && lastResetDate !== todayStr) {
-                    currentGroups = currentGroups.map(g => ({
+                // 換日判定：如果現在超過 8 點，且存檔中的重置日期不等於今天
+                if (now.getHours() >= 8 && data.lastResetDate !== todayStr) {
+                    const resetGroups = (data.groups || groups).map(g => ({
                         ...g,
                         accounts: g.accounts.map(a => ({
                             ...a,
@@ -167,22 +141,47 @@
                             dynamicDay: false, customEvent: false
                         }))
                     }));
-                    lastResetDate = todayStr;
-                    showNotify(`☀️成功！本週為：${currentWeekType}`);
+                    
+                    const newData = { ...data, groups: resetGroups, lastResetDate: todayStr };
+                    setGroups(resetGroups);
+                    setTodayIndex(now.getDay());
+                    persist(newData);
+                    showNotify(`☀️ 早上 8:00 換日成功！`);
+                } else if ((!groups || groups.length === 0) && data.groups) {
+                    // 初始加載（非重置情況）
+                    setGroups(data.groups);
+                    setAppTitle(data.appTitle || '🌸 末日全能追蹤');
+                    setCustomEventName(data.customEventName || '限定活動');
+                    setTodayIndex(now.getDay());
                 }
+            }, [groups, persist]);
 
-                setGroups(currentGroups);
-                setAppTitle(currentTitle);
-                setCustomEventName(currentCustomEvent);
-                persist({ groups: currentGroups, appTitle: currentTitle, customEventName: currentCustomEvent, lastResetDate: todayStr });
-            }, [currentWeekType]);
+            // 1. 初始化與定時檢查
+            useEffect(() => {
+                // 決定雙週循環
+                const getWeekNumber = (d) => {
+                    const date = new Date(d.getTime());
+                    date.setHours(0, 0, 0, 0);
+                    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+                    const week1 = new Date(date.getFullYear(), 0, 4);
+                    return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+                };
+                setCurrentWeekType(CYCLE_WEEKS[getWeekNumber(new Date()) % 2]);
+
+                // 立即檢查一次
+                checkAndReset();
+
+                // 每分鐘檢查一次，防止使用者開著網頁過 8 點
+                const timer = setInterval(checkAndReset, 60000);
+                return () => clearInterval(timer);
+            }, [checkAndReset]);
 
             const saveAll = (newG, newT, newC) => {
                 const g = newG || groups;
                 const t = newT !== undefined ? newT : appTitle;
                 const c = newC !== undefined ? newC : customEventName;
                 const savedRaw = localStorage.getItem(STORAGE_KEY);
-                let lastD = new Date().toLocaleDateString('zh-HK');
+                let lastD = "";
                 if(savedRaw) try { lastD = JSON.parse(savedRaw).lastResetDate; } catch(e){}
                 persist({ groups: g, appTitle: t, customEventName: c, lastResetDate: lastD });
             };
@@ -257,7 +256,6 @@
 
                     <div className="space-y-4">
                         {groups.map(group => {
-                            // 過濾帳號
                             const displayedAccounts = hideCompleted 
                                 ? group.accounts.filter(acc => !isAccountDone(acc))
                                 : group.accounts;
