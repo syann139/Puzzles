@@ -78,6 +78,7 @@
             Trash: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
             Drag: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>,
             Sync: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>,
+            Rotate: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>,
             Edit: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
             Star: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>,
             EyeOff: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
@@ -119,6 +120,42 @@
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             }, []);
 
+            // 執行重置動作的通用函式
+            const performReset = useCallback((currentGroups, title, eventName) => {
+                const now = new Date();
+                const todayStr = now.toLocaleDateString('zh-HK');
+                
+                const resetGroups = currentGroups.map(g => ({
+                    ...g,
+                    accounts: g.accounts.map(a => ({
+                        ...a,
+                        daily: false, commander: false, hero: false, mall: false, 
+                        seed: false, special: false, event: false, water: false,
+                        dynamicDay: false, customEvent: false
+                    }))
+                }));
+                
+                setGroups(resetGroups);
+                setTodayIndex(now.getDay());
+                
+                const newData = { 
+                    groups: resetGroups, 
+                    appTitle: title || appTitle, 
+                    customEventName: eventName || customEventName, 
+                    lastResetDate: todayStr 
+                };
+                persist(newData);
+                return resetGroups;
+            }, [appTitle, customEventName, persist]);
+
+            // 手動重置
+            const handleManualReset = () => {
+                if (confirm("⚠️ 確定要重置所有帳號的勾選狀態嗎？\n(救援包、礦區等數字不會被重置)")) {
+                    performReset(groups);
+                    showNotify("✅ 已手動重置所有進度！");
+                }
+            };
+
             // 核心重置邏輯：檢查是否需要換日
             const checkAndReset = useCallback(() => {
                 const now = new Date();
@@ -132,20 +169,7 @@
 
                 // 換日判定：如果現在超過 8 點，且存檔中的重置日期不等於今天
                 if (now.getHours() >= 8 && data.lastResetDate !== todayStr) {
-                    const resetGroups = (data.groups || groups).map(g => ({
-                        ...g,
-                        accounts: g.accounts.map(a => ({
-                            ...a,
-                            daily: false, commander: false, hero: false, mall: false, 
-                            seed: false, special: false, event: false, water: false,
-                            dynamicDay: false, customEvent: false
-                        }))
-                    }));
-                    
-                    const newData = { ...data, groups: resetGroups, lastResetDate: todayStr };
-                    setGroups(resetGroups);
-                    setTodayIndex(now.getDay());
-                    persist(newData);
+                    performReset(data.groups || groups, data.appTitle, data.customEventName);
                     showNotify(`☀️ 早上 8:00 換日成功！`);
                 } else if ((!groups || groups.length === 0) && data.groups) {
                     // 初始加載（非重置情況）
@@ -154,7 +178,7 @@
                     setCustomEventName(data.customEventName || '限定活動');
                     setTodayIndex(now.getDay());
                 }
-            }, [groups, persist]);
+            }, [groups, performReset]);
 
             // 1. 初始化與定時檢查
             useEffect(() => {
@@ -205,7 +229,7 @@
                     {/* 頂部控制列 */}
                     <div className="bg-white/90 backdrop-blur-md p-4 rounded-[1.5rem] shadow-sm border border-pink-100 flex flex-col gap-3 sticky top-4 z-50">
                         <div className="flex items-center justify-between gap-4">
-                            <div className="flex flex-col">
+                            <div className="flex flex-col flex-1">
                                 <input 
                                     type="text" value={appTitle} 
                                     onChange={(e) => {setAppTitle(e.target.value); saveAll(null, e.target.value);}}
@@ -215,7 +239,14 @@
                                     <Icons.Star /> {currentWeekType}
                                 </div>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1.5">
+                                <button 
+                                    onClick={handleManualReset}
+                                    title="手動重置所有進度"
+                                    className="p-2.5 bg-pink-50 text-pink-500 rounded-xl active:scale-95 border border-pink-100"
+                                >
+                                    <Icons.Rotate />
+                                </button>
                                 <button 
                                     onClick={() => setHideCompleted(!hideCompleted)} 
                                     className={`p-2.5 rounded-xl transition-all ${hideCompleted ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-500'}`}
