@@ -89,6 +89,15 @@
 
             const showNotify = (msg) => { setNotification(msg); setTimeout(() => setNotification(''), 3000); };
 
+            const save = (newG, newT, newC) => {
+                const data = {
+                    groups: newG || groups,
+                    appTitle: newT || appTitle,
+                    customEventName: newC || customEventName
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            };
+
             const isAccountDone = useCallback((acc) => (
                 acc.daily && acc.commander && acc.hero && acc.mall && 
                 acc.seed && acc.special && acc.event && acc.water && 
@@ -108,6 +117,16 @@
 
                 setPrisonTimer(`${d}D ${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`);
             }, []);
+
+            const updateAccount = (groupId, accId, fields) => {
+                setGroups(prev => {
+                    const next = prev.map(g => g.id === groupId ? {
+                        ...g, accounts: g.accounts.map(a => a.id === accId ? {...a, ...fields} : a)
+                    } : g);
+                    save(next); // 確保每次狀態更新都同步存檔
+                    return next;
+                });
+            };
 
             useEffect(() => {
                 let loadedGroups = [];
@@ -143,6 +162,7 @@
                         const newGroups = groupsToCheck.map(g => ({
                             ...g, accounts: g.accounts.map(a => {
                                 const dec = v => {
+                                    if (!v || v === "" || v === "0") return v;
                                     const n = parseInt(v, 10);
                                     return !isNaN(n) ? Math.max(0, n - 1).toString() : v;
                                 };
@@ -189,23 +209,6 @@
                 updatePrisonDisplay();
                 return () => { clearInterval(timerId); clearInterval(dailyCheckId); };
             }, [updatePrisonDisplay]);
-
-            const save = (newG, newT, newC) => {
-                const data = {
-                    groups: newG || groups,
-                    appTitle: newT || appTitle,
-                    customEventName: newC || customEventName
-                };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            };
-
-            const updateAccount = (groupId, accId, fields) => {
-                const next = groups.map(g => g.id === groupId ? {
-                    ...g, accounts: g.accounts.map(a => a.id === accId ? {...a, ...fields} : a)
-                } : g);
-                setGroups(next);
-                save(next);
-            };
 
             const copyToClipboard = () => {
                 const code = localStorage.getItem(STORAGE_KEY) || '';
@@ -410,7 +413,7 @@
                                                         <div className="grid grid-cols-3 gap-2">
                                                             {[ {key: 'pack', label: '救援包'}, {key: 'mine1', label: '金礦'}, {key: 'crystal', label: '晶核'} ].map(c => {
                                                                 const num = parseInt(acc[c.key], 10);
-                                                                const isUrgent = !isNaN(num) && num <= 0;
+                                                                const isUrgent = !isNaN(num) && num <= 0 && acc[c.key] !== "";
                                                                 const isWaitingReward = isUrgent && acc[c.key] === '0';
                                                                 const displayValue = isWaitingReward ? '領獎' : (acc[c.key] || '');
                                                                 
@@ -421,18 +424,22 @@
                                                                             <input 
                                                                                 type="text" 
                                                                                 value={displayValue}
-                                                                                onFocus={(e) => {
-                                                                                    // 領獎優化：如果顯示「領獎」，點擊則自動填入 30 並保存
-                                                                                    if (e.target.value === '領獎') {
+                                                                                onMouseDown={(e) => {
+                                                                                    // 領獎邏輯：如果顯示「領獎」，點擊則立即重置為 30
+                                                                                    if (displayValue === '領獎') {
+                                                                                        e.preventDefault(); // 防止 focus 干擾
                                                                                         updateAccount(group.id, acc.id, { [c.key]: '30' });
-                                                                                        showNotify(`🎉 已領取並重置 30 天：${c.label}`);
+                                                                                        showNotify(`🎉 ${acc.name} 已重置 30 天：${c.label}`);
+                                                                                    }
+                                                                                }}
+                                                                                onFocus={(e) => {
+                                                                                    // 如果不是領獎狀態，正常 focus 供輸入
+                                                                                    if (displayValue !== '領獎') {
+                                                                                        e.target.select();
                                                                                     }
                                                                                 }}
                                                                                 onChange={(e) => {
-                                                                                    let val = e.target.value;
-                                                                                    // 移除領獎文字方便手動修改
-                                                                                    if (val.includes('領獎')) val = val.replace('領獎', ''); 
-                                                                                    val = val.replace(/\D/g,'');
+                                                                                    let val = e.target.value.replace(/\D/g,'');
                                                                                     updateAccount(group.id, acc.id, { [c.key]: val });
                                                                                 }} 
                                                                                 className="w-full bg-transparent text-center text-[10px] font-black outline-none placeholder-slate-300" 
@@ -472,3 +479,5 @@
 
         ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
+</body>
+</html>
