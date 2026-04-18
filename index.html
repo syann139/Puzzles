@@ -6,23 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🌸 末日全能追蹤 - 精確監獄版</title>
     
-    <link rel="apple-touch-icon" href="https://syann139.github.io/Puzzles/apple-touch-icon.png">
-    <link rel="icon" type="image/png" href="https://syann139.github.io/Puzzles/apple-touch-icon.png">
-    
+    <!-- Meta tags for Apple devices -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="末日追蹤">
 
+    <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Custom Styles -->
     <style>
         @keyframes pulse-red {
             0%, 100% { background-color: #fee2e2; border-color: #ef4444; }
             50% { background-color: #fecaca; border-color: #dc2626; }
         }
+        @keyframes modal-pop {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
         .animate-urgent { animation: pulse-red 2s infinite; }
+        .animate-modal { animation: modal-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             touch-action: pan-y;
@@ -30,6 +37,7 @@
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
         .account-completed {
             opacity: 0.6;
             filter: grayscale(0.5);
@@ -49,13 +57,6 @@
         const WEEKLY_TASKS_MAP = {
             "最強指揮官週": { 1: "英雄崛起/奈米", 2: "發展之路", 3: "獵殺之路", 4: "練兵大師", 5: "器官精造", 6: "強化改造(全能)", 0: "終極之路(全能)" },
             "王牌英雄週": { 1: "英雄提升", 2: "避難所發展", 3: "裝備/晶核/藏品", 4: "生化人/元件", 5: "器官/榮耀", 6: "消耗鑽石(王牌)", 0: "鑽石/晶片/魔方" }
-        };
-
-        // 基準時間校準：使用者回報 1D 20:59:04 (總計 161944 秒)
-        const getPrisonTarget = () => {
-            const now = new Date().getTime();
-            const remainingSec = (1 * 86400) + (20 * 3600) + (59 * 60) + 4;
-            return now + (remainingSec * 1000);
         };
 
         const Icons = {
@@ -84,8 +85,7 @@
             const [prisonTimer, setPrisonTimer] = useState("");
             const [todayIndex, setTodayIndex] = useState(new Date().getDay());
             
-            // 監獄訓練基準點
-            const targetRef = useRef(getPrisonTarget());
+            const [modalConfig, setModalConfig] = useState({ isOpen: false, type: '', title: '', value: '', placeholder: '', onConfirm: null });
 
             const showNotify = (msg) => { setNotification(msg); setTimeout(() => setNotification(''), 3000); };
 
@@ -96,35 +96,31 @@
             ), []);
 
             const updatePrisonDisplay = useCallback(() => {
-                const now = new Date().getTime();
-                let diff = targetRef.current - now;
+                const cycle = 3 * 24 * 60 * 60 * 1000;
+                const anchor = Date.UTC(2026, 3, 19, 0, 0, 0); 
+                const now = Date.now();
+                const remaining = ((anchor - now) % cycle + cycle) % cycle;
 
-                if (diff <= 0) {
-                    targetRef.current = targetRef.current + (3 * 86400 * 1000); // 3天循環
-                    diff = targetRef.current - now;
-                }
-
-                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const s = Math.floor((diff % (1000 * 60)) / 1000);
+                const d = Math.floor(remaining / (1000 * 60 * 60 * 24));
+                const h = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const m = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                const s = Math.floor((remaining % (1000 * 60)) / 1000);
 
                 setPrisonTimer(`${d}D ${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`);
             }, []);
 
-            // 初始化加載
             useEffect(() => {
+                let loadedGroups = [];
                 const saved = localStorage.getItem(STORAGE_KEY);
                 if (saved) {
                     try {
                         const parsed = JSON.parse(saved);
-                        setGroups(parsed.groups || []);
+                        loadedGroups = parsed.groups || [];
                         setAppTitle(parsed.appTitle || '🌸 末日全能追蹤');
                         setCustomEventName(parsed.customEventName || '限定活動');
                     } catch(e) {}
                 } else {
-                    // 預設資料
-                    setGroups([
+                    loadedGroups = [
                         { id: 'g1', title: '382服 WTF', isOpen: true, accounts: [
                             { id: 'a1', name: '飄落的蒲公英 ҉͜', daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' },
                             { id: 'a2', name: '☪淺月夜未央︎৯', daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' }
@@ -132,10 +128,48 @@
                         { id: 'g4', title: '538服 WTF', isOpen: true, accounts: [
                             { id: 'a6', name: '小小1號', daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' }
                         ]}
-                    ]);
+                    ];
                 }
 
-                // 設定週循環
+                const checkDailyReset = (groupsToCheck, saveImmediate = false) => {
+                    const now = new Date();
+                    const resetTime = new Date(now);
+                    resetTime.setHours(8, 0, 0, 0); 
+                    if (now < resetTime) resetTime.setDate(resetTime.getDate() - 1);
+                    const currentResetTime = resetTime.getTime();
+                    
+                    const lastReset = localStorage.getItem('puzzles_survival_last_reset');
+                    if (!lastReset || parseInt(lastReset, 10) < currentResetTime) {
+                        const newGroups = groupsToCheck.map(g => ({
+                            ...g, accounts: g.accounts.map(a => {
+                                const dec = v => {
+                                    const n = parseInt(v, 10);
+                                    return !isNaN(n) ? Math.max(0, n - 1).toString() : v;
+                                };
+                                return { 
+                                    ...a, daily: false, commander: false, hero: false, mall: false, 
+                                    seed: false, special: false, event: false, water: false, 
+                                    dynamicDay: false, customEvent: false, 
+                                    pack: dec(a.pack), mine1: dec(a.mine1), crystal: dec(a.crystal) 
+                                };
+                            })
+                        }));
+                        localStorage.setItem('puzzles_survival_last_reset', currentResetTime.toString());
+                        if (saveImmediate) {
+                            const currentSaved = localStorage.getItem(STORAGE_KEY);
+                            const parsed = currentSaved ? JSON.parse(currentSaved) : { appTitle: '🌸 末日全能追蹤', customEventName: '限定活動' };
+                            parsed.groups = newGroups;
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+                        }
+                        setTimeout(() => showNotify("✨ 換日 8:00：任務與倒數天數已自動重置！"), 800);
+                        return newGroups;
+                    }
+                    return groupsToCheck;
+                };
+
+                loadedGroups = checkDailyReset(loadedGroups, true);
+                setGroups(loadedGroups);
+
                 const getWeekNumber = (d) => {
                     const date = new Date(d.getTime());
                     date.setHours(0, 0, 0, 0);
@@ -145,10 +179,15 @@
                 };
                 setCurrentWeekType(CYCLE_WEEKS[getWeekNumber(new Date()) % 2]);
 
-                // 計時器
                 const timerId = setInterval(updatePrisonDisplay, 1000);
+                
+                const dailyCheckId = setInterval(() => {
+                    setGroups(prev => checkDailyReset(prev, true));
+                    setTodayIndex(new Date().getDay());
+                }, 60000);
+
                 updatePrisonDisplay();
-                return () => clearInterval(timerId);
+                return () => { clearInterval(timerId); clearInterval(dailyCheckId); };
             }, [updatePrisonDisplay]);
 
             const save = (newG, newT, newC) => {
@@ -168,6 +207,25 @@
                 save(next);
             };
 
+            const copyToClipboard = () => {
+                const code = localStorage.getItem(STORAGE_KEY) || '';
+                setBackupText(code);
+                
+                const textArea = document.createElement("textarea");
+                textArea.value = code;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showNotify("代碼已複製！");
+                } catch (err) {
+                    showNotify("複製失敗，請手動複製上方代碼。");
+                }
+                document.body.removeChild(textArea);
+            };
+
             const dayTaskName = WEEKLY_TASKS_MAP[currentWeekType][todayIndex] || "一般任務";
 
             const overallStats = useMemo(() => {
@@ -180,12 +238,48 @@
             return (
                 <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
                     {notification && (
-                        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-slate-800 text-white px-6 py-3 rounded-2xl shadow-2xl font-bold border-2 border-pink-400">
+                        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-slate-800 text-white px-6 py-3 rounded-2xl shadow-2xl font-bold border-2 border-pink-400 text-center whitespace-nowrap">
                             {notification}
                         </div>
                     )}
 
-                    {/* 頂部狀態欄 */}
+                    {modalConfig.isOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[400] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl animate-modal border border-pink-100">
+                                <h3 className="text-slate-700 font-black mb-4 text-lg">{modalConfig.title}</h3>
+                                {modalConfig.type === 'PROMPT' && (
+                                    <input
+                                        type="text"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold mb-4 outline-none focus:border-pink-400 focus:bg-white transition-colors"
+                                        placeholder={modalConfig.placeholder}
+                                        value={modalConfig.value}
+                                        onChange={(e) => setModalConfig({ ...modalConfig, value: e.target.value })}
+                                        autoFocus
+                                    />
+                                )}
+                                <div className="flex gap-3 mt-2">
+                                    <button
+                                        onClick={() => setModalConfig({ isOpen: false, type: '', title: '', value: '', placeholder: '', onConfirm: null })}
+                                        className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl text-sm hover:bg-slate-200 transition-colors"
+                                    >
+                                        取消
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (modalConfig.onConfirm) {
+                                                modalConfig.onConfirm(modalConfig.type === 'PROMPT' ? modalConfig.value : null);
+                                            }
+                                            setModalConfig({ isOpen: false, type: '', title: '', value: '', placeholder: '', onConfirm: null });
+                                        }}
+                                        className="flex-1 py-3 bg-pink-500 text-white font-bold rounded-2xl text-sm hover:bg-pink-600 transition-colors shadow-sm"
+                                    >
+                                        確定
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-white/90 backdrop-blur-md p-4 rounded-[1.5rem] shadow-sm border border-pink-100 flex flex-col gap-3 sticky top-4 z-50">
                         <div className="flex items-center justify-between gap-4">
                             <div className="flex flex-col flex-1">
@@ -202,12 +296,17 @@
                                 </div>
                             </div>
                             <div className="flex gap-1.5">
-                                <button onClick={() => { if(confirm("確定重置所有勾選？")) { 
-                                    const next = groups.map(g => ({...g, accounts: g.accounts.map(a => ({...a, daily:false, commander:false, hero:false, mall:false, seed:false, special:false, event:false, water:false, dynamicDay:false, customEvent:false}))}));
-                                    setGroups(next); save(next);
-                                }}} className="p-2.5 bg-pink-50 text-pink-500 rounded-xl border border-pink-100"><Icons.Rotate /></button>
-                                <button onClick={() => setHideCompleted(!hideCompleted)} className={`p-2.5 rounded-xl transition-all ${hideCompleted ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-500'}`}><Icons.EyeOff /></button>
-                                <button onClick={() => setShowSync(true)} className="p-2.5 bg-slate-100 text-slate-500 rounded-xl"><Icons.Sync /></button>
+                                <button onClick={() => { 
+                                    setModalConfig({
+                                        isOpen: true, type: 'CONFIRM', title: '確定重置所有勾選？',
+                                        onConfirm: () => {
+                                            const next = groups.map(g => ({...g, accounts: g.accounts.map(a => ({...a, daily:false, commander:false, hero:false, mall:false, seed:false, special:false, event:false, water:false, dynamicDay:false, customEvent:false}))}));
+                                            setGroups(next); save(next);
+                                        }
+                                    });
+                                }} className="p-2.5 bg-pink-50 hover:bg-pink-100 text-pink-500 rounded-xl border border-pink-100 transition-colors"><Icons.Rotate /></button>
+                                <button onClick={() => setHideCompleted(!hideCompleted)} className={`p-2.5 rounded-xl transition-all ${hideCompleted ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><Icons.EyeOff /></button>
+                                <button onClick={() => setShowSync(true)} className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl transition-colors"><Icons.Sync /></button>
                             </div>
                         </div>
                         <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden relative border border-slate-50">
@@ -218,30 +317,50 @@
 
                     <div className="flex flex-wrap gap-2 justify-center">
                         <div className="px-4 py-1.5 bg-indigo-600 text-white rounded-full text-[10px] font-bold shadow-sm">📅 今日任務：{dayTaskName}</div>
-                        <div className="px-4 py-1.5 bg-amber-500 text-white rounded-full text-[10px] font-bold shadow-sm flex items-center gap-2 cursor-pointer" onClick={() => { const n = prompt("更換活動名稱：", customEventName); if(n) { setCustomEventName(n); save(null, null, n); } }}>🔥 {customEventName} <Icons.Edit /></div>
+                        <div className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 transition-colors text-white rounded-full text-[10px] font-bold shadow-sm flex items-center gap-2 cursor-pointer" 
+                             onClick={() => {
+                                setModalConfig({
+                                    isOpen: true, type: 'PROMPT', title: '更換活動名稱：', value: customEventName, placeholder: '輸入活動名稱',
+                                    onConfirm: (val) => { if (val) { setCustomEventName(val); save(null, null, val); } }
+                                });
+                             }}>
+                            🔥 {customEventName} <Icons.Edit />
+                        </div>
                     </div>
 
-                    {/* 列表內容 */}
                     <div className="space-y-4">
                         {groups.map(group => {
                             const displayedAccounts = hideCompleted ? group.accounts.filter(acc => !isAccountDone(acc)) : group.accounts;
                             if (hideCompleted && displayedAccounts.length === 0) return null;
 
                             return (
-                                <div key={group.id} className="bg-white/60 border border-white rounded-[2rem] overflow-hidden shadow-sm">
-                                    <div className="flex items-center p-3 bg-white/80 border-b border-pink-50">
+                                <div key={group.id} className="bg-white/60 border border-white rounded-[2rem] overflow-hidden shadow-sm transition-all">
+                                    <div className="flex items-center p-3 bg-white/80 border-b border-pink-50 transition-colors">
                                         <div className="flex-1 flex items-center gap-2 cursor-pointer" onClick={() => { const next = groups.map(g => g.id === group.id ? {...g, isOpen: !g.isOpen} : g); setGroups(next); save(next); }}>
                                             <div className="text-pink-400">{group.isOpen ? <Icons.ChevronDown /> : <Icons.ChevronRight />}</div>
                                             <span className="font-black text-slate-600 text-sm">{group.title}</span>
                                         </div>
-                                        <button onClick={() => {
-                                            const name = prompt("角色名稱：");
-                                            if(name) {
-                                                const next = groups.map(g => g.id === group.id ? {...g, accounts: [...g.accounts, { id: Date.now().toString(), name, daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' }]} : g);
-                                                setGroups(next); save(next);
-                                            }
-                                        }} className="p-2 text-pink-400 bg-pink-50 rounded-lg mr-2"><Icons.Plus /></button>
-                                        <button onClick={() => { if(confirm("刪除此群組？")) { const next = groups.filter(g => g.id !== group.id); setGroups(next); save(next); } }} className="p-2 text-slate-300"><Icons.Trash /></button>
+                                        <button onClick={(e) => {
+                                            e.stopPropagation();
+                                            setModalConfig({
+                                                isOpen: true, type: 'PROMPT', title: '新增角色名稱：', value: '', placeholder: '輸入角色名稱',
+                                                onConfirm: (val) => {
+                                                    if(val) {
+                                                        const next = groups.map(g => g.id === group.id ? {...g, accounts: [...g.accounts, { id: Date.now().toString(), name: val, daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' }]} : g);
+                                                        setGroups(next); save(next);
+                                                    }
+                                                }
+                                            });
+                                        }} className="p-2 text-pink-400 bg-pink-50 hover:bg-pink-100 rounded-lg mr-2 transition-colors"><Icons.Plus /></button>
+                                        <button onClick={(e) => { 
+                                            e.stopPropagation();
+                                            setModalConfig({
+                                                isOpen: true, type: 'CONFIRM', title: `確定刪除群組「${group.title}」？`,
+                                                onConfirm: () => {
+                                                    const next = groups.filter(g => g.id !== group.id); setGroups(next); save(next);
+                                                }
+                                            });
+                                        }} className="p-2 text-slate-300 hover:text-red-400 transition-colors"><Icons.Trash /></button>
                                     </div>
                                     
                                     {group.isOpen && (
@@ -249,34 +368,41 @@
                                             {displayedAccounts.map(acc => {
                                                 const done = isAccountDone(acc);
                                                 return (
-                                                    <div key={acc.id} className={`bg-white rounded-[1.8rem] p-4 border border-pink-50 shadow-sm flex flex-col gap-4 relative overflow-hidden ${done ? 'account-completed ring-2 ring-emerald-400' : ''}`}>
+                                                    <div key={acc.id} className={`bg-white rounded-[1.8rem] p-4 border border-pink-50 shadow-sm flex flex-col gap-4 relative overflow-hidden transition-all duration-300 ${done ? 'account-completed ring-2 ring-emerald-400' : ''}`}>
                                                         {done && <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[9px] px-3 py-1 font-black rounded-bl-xl z-10">DONE</div>}
                                                         <div className="flex items-center gap-2">
                                                             <input type="text" value={acc.name} onChange={(e) => updateAccount(group.id, acc.id, { name: e.target.value })} className="font-black outline-none text-xs flex-1 bg-transparent" />
-                                                            <button onClick={() => { if(confirm("刪除此角色？")) { const next = groups.map(g => g.id === group.id ? {...g, accounts: g.accounts.filter(a => a.id !== acc.id)} : g); setGroups(next); save(next); } }} className="text-slate-200"><Icons.Trash /></button>
+                                                            <button onClick={() => { 
+                                                                setModalConfig({
+                                                                    isOpen: true, type: 'CONFIRM', title: `確定刪除角色「${acc.name}」？`,
+                                                                    onConfirm: () => {
+                                                                        const next = groups.map(g => g.id === group.id ? {...g, accounts: g.accounts.filter(a => a.id !== acc.id)} : g); setGroups(next); save(next);
+                                                                    }
+                                                                });
+                                                            }} className="text-slate-200 hover:text-red-400 transition-colors"><Icons.Trash /></button>
                                                         </div>
                                                         
                                                         <div className="flex gap-2 p-2 bg-slate-50 rounded-2xl border border-slate-100">
                                                             <div className="flex-1 flex flex-col items-center gap-1">
                                                                 <span className="text-[9px] text-indigo-600 font-black truncate w-full text-center">{dayTaskName}</span>
-                                                                <button onClick={() => updateAccount(group.id, acc.id, { dynamicDay: !acc.dynamicDay })} className={`w-full h-8 rounded-xl flex items-center justify-center ${acc.dynamicDay ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-indigo-100 text-transparent'}`}><Icons.Check /></button>
+                                                                <button onClick={() => updateAccount(group.id, acc.id, { dynamicDay: !acc.dynamicDay })} className={`w-full h-8 rounded-xl flex items-center justify-center transition-all ${acc.dynamicDay ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-indigo-100 text-transparent hover:bg-indigo-50'}`}><Icons.Check /></button>
                                                             </div>
                                                             <div className="flex-1 flex flex-col items-center gap-1">
                                                                 <span className="text-[9px] text-amber-600 font-black truncate w-full text-center">{customEventName}</span>
-                                                                <button onClick={() => updateAccount(group.id, acc.id, { customEvent: !acc.customEvent })} className={`w-full h-8 rounded-xl flex items-center justify-center ${acc.customEvent ? 'bg-amber-500 text-white shadow-md' : 'bg-white border border-amber-100 text-transparent'}`}><Icons.Check /></button>
+                                                                <button onClick={() => updateAccount(group.id, acc.id, { customEvent: !acc.customEvent })} className={`w-full h-8 rounded-xl flex items-center justify-center transition-all ${acc.customEvent ? 'bg-amber-500 text-white shadow-md' : 'bg-white border border-amber-100 text-transparent hover:bg-amber-50'}`}><Icons.Check /></button>
                                                             </div>
                                                         </div>
 
                                                         <div className="grid grid-cols-4 gap-1.5">
                                                             {[
-                                                                {key: 'daily', label: '日常'}, {key: 'commander', label: '指揮官'}, 
+                                                                {key: 'daily', label: '日常'}, {key: 'commander', label: '指揮'}, 
                                                                 {key: 'hero', label: '英雄'}, {key: 'mall', label: '商城'},
                                                                 {key: 'seed', label: '種子'}, {key: 'special', label: '特種'}, 
-                                                                {key: 'event', label: '節日活動'}, {key: 'water', label: '淨水'}
+                                                                {key: 'event', label: '活動'}, {key: 'water', label: '淨水'}
                                                             ].map(t => (
                                                                 <div key={t.key} className="flex flex-col items-center gap-1">
                                                                     <span className="text-[9px] text-slate-400 font-bold">{t.label}</span>
-                                                                    <button onClick={() => updateAccount(group.id, acc.id, { [t.key]: !acc[t.key] })} className={`w-8 h-8 rounded-xl flex items-center justify-center ${acc[t.key] ? 'bg-pink-500 text-white shadow-sm' : 'bg-slate-50 text-transparent border border-slate-100'}`}><Icons.Check /></button>
+                                                                    <button onClick={() => updateAccount(group.id, acc.id, { [t.key]: !acc[t.key] })} className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${acc[t.key] ? 'bg-pink-500 text-white shadow-sm scale-110' : 'bg-slate-50 text-transparent border border-slate-100 hover:bg-pink-50'}`}><Icons.Check /></button>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -285,11 +411,33 @@
                                                             {[ {key: 'pack', label: '救援包'}, {key: 'mine1', label: '金礦'}, {key: 'crystal', label: '晶核'} ].map(c => {
                                                                 const num = parseInt(acc[c.key], 10);
                                                                 const isUrgent = !isNaN(num) && num <= 0;
+                                                                const isWaitingReward = isUrgent && acc[c.key] === '0';
+                                                                const displayValue = isWaitingReward ? '領獎' : (acc[c.key] || '');
+                                                                
                                                                 return (
                                                                     <div key={c.key} className="flex flex-col items-center gap-1">
                                                                         <span className="text-[9px] text-slate-400 font-bold">{c.label}</span>
-                                                                        <div className={`w-full h-8 rounded-xl border flex items-center justify-center relative ${isUrgent ? 'animate-urgent border-red-500 text-red-600' : 'bg-white border-slate-100'}`}>
-                                                                            <input type="text" value={acc[c.key] || ''} onChange={(e) => updateAccount(group.id, acc.id, { [c.key]: e.target.value.replace(/\D/g,'') })} className="w-full bg-transparent text-center text-[10px] font-black outline-none" placeholder="-" />
+                                                                        <div className={`w-full h-8 rounded-xl border flex items-center justify-center relative transition-colors ${isUrgent ? 'animate-urgent border-red-500 text-red-600 font-black' : 'bg-white border-slate-100'}`}>
+                                                                            <input 
+                                                                                type="text" 
+                                                                                value={displayValue}
+                                                                                onFocus={(e) => {
+                                                                                    // 領獎優化：如果顯示「領獎」，點擊則自動填入 30 並保存
+                                                                                    if (e.target.value === '領獎') {
+                                                                                        updateAccount(group.id, acc.id, { [c.key]: '30' });
+                                                                                        showNotify(`🎉 已領取並重置 30 天：${c.label}`);
+                                                                                    }
+                                                                                }}
+                                                                                onChange={(e) => {
+                                                                                    let val = e.target.value;
+                                                                                    // 移除領獎文字方便手動修改
+                                                                                    if (val.includes('領獎')) val = val.replace('領獎', ''); 
+                                                                                    val = val.replace(/\D/g,'');
+                                                                                    updateAccount(group.id, acc.id, { [c.key]: val });
+                                                                                }} 
+                                                                                className="w-full bg-transparent text-center text-[10px] font-black outline-none placeholder-slate-300" 
+                                                                                placeholder="-" 
+                                                                            />
                                                                         </div>
                                                                     </div>
                                                                 );
@@ -307,14 +455,14 @@
 
                     {showSync && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
-                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl">
+                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl animate-modal border border-slate-100">
                                 <h3 className="text-pink-500 font-black mb-4 flex items-center gap-2"><Icons.Sync /> 同步數據</h3>
-                                <textarea className="w-full h-40 bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[10px] font-mono mb-4 outline-none no-scrollbar" value={backupText} onChange={(e) => setBackupText(e.target.value)} placeholder="貼上備份代碼..." />
+                                <textarea className="w-full h-40 bg-slate-50 border border-slate-200 focus:border-pink-400 rounded-2xl p-4 text-[10px] font-mono mb-4 outline-none no-scrollbar transition-colors" value={backupText} onChange={(e) => setBackupText(e.target.value)} placeholder="貼上備份代碼..." />
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => { const code = localStorage.getItem(STORAGE_KEY); setBackupText(code); navigator.clipboard.writeText(code).then(() => showNotify("代碼已複製！")); }} className="py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl text-sm">複製備份</button>
-                                    <button onClick={() => { try { const p = JSON.parse(backupText); setGroups(p.groups); setAppTitle(p.appTitle); setCustomEventName(p.customEventName || '限定活動'); setShowSync(false); localStorage.setItem(STORAGE_KEY, backupText); showNotify("導入成功！"); } catch(e) { showNotify("格式錯誤"); } }} className="py-3 bg-pink-500 text-white font-bold rounded-2xl text-sm">導入數據</button>
+                                    <button onClick={copyToClipboard} className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl text-sm transition-colors">複製備份</button>
+                                    <button onClick={() => { try { const p = JSON.parse(backupText); setGroups(p.groups); setAppTitle(p.appTitle); setCustomEventName(p.customEventName || '限定活動'); setShowSync(false); localStorage.setItem(STORAGE_KEY, backupText); showNotify("導入成功！"); } catch(e) { showNotify("格式錯誤，請檢查代碼"); } }} className="py-3 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-2xl text-sm shadow-sm transition-colors">導入數據</button>
                                 </div>
-                                <button onClick={() => setShowSync(false)} className="w-full mt-4 text-slate-300 text-xs font-bold text-center">關閉</button>
+                                <button onClick={() => setShowSync(false)} className="w-full mt-4 text-slate-400 hover:text-slate-600 text-xs font-bold text-center transition-colors">關閉</button>
                             </div>
                         </div>
                     )}
@@ -324,5 +472,3 @@
 
         ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
-</body>
-</html>
