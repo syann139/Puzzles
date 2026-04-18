@@ -5,15 +5,17 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🌸 末日全能追蹤 - 精確監獄版</title>
-
-        <!-- 自訂手機圖示 -->
-    <link rel="apple-touch-icon" href="https://syann139.github.io/Puzzles/apple-touch-icon.png">
-    <link rel="icon" type="image/png" href="https://syann139.github.io/Puzzles/apple-touch-icon.png">
     
     <!-- Meta tags for Apple devices -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="末日追蹤">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/puzzles-survival/icons/main/icon-192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="https://raw.githubusercontent.com/puzzles-survival/icons/main/icon-152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/puzzles-survival/icons/main/icon-180.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="https://raw.githubusercontent.com/puzzles-survival/icons/main/icon-167.png">
 
     <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -63,6 +65,16 @@
             "王牌英雄週": { 1: "英雄提升", 2: "避難所發展", 3: "裝備/晶核/藏品", 4: "生化人/元件", 5: "器官/榮耀", 6: "消耗鑽石(王牌)", 0: "鑽石/晶片/魔方" }
         };
 
+        // 統一遞減天數邏輯
+        const decrementDays = (v) => {
+            if (v === null || v === undefined || v === "") return "";
+            const n = parseInt(v, 10);
+            if (!isNaN(n)) {
+                return Math.max(0, n - 1).toString();
+            }
+            return v;
+        };
+
         const Icons = {
             ChevronDown: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>,
             ChevronRight: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>,
@@ -93,14 +105,14 @@
 
             const showNotify = (msg) => { setNotification(msg); setTimeout(() => setNotification(''), 3000); };
 
-            const save = (newG, newT, newC) => {
+            const save = useCallback((newG, newT, newC) => {
                 const data = {
                     groups: newG || groups,
                     appTitle: newT || appTitle,
                     customEventName: newC || customEventName
                 };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            };
+            }, [groups, appTitle, customEventName]);
 
             const isAccountDone = useCallback((acc) => (
                 acc.daily && acc.commander && acc.hero && acc.mall && 
@@ -127,7 +139,8 @@
                     const next = prev.map(g => g.id === groupId ? {
                         ...g, accounts: g.accounts.map(a => a.id === accId ? {...a, ...fields} : a)
                     } : g);
-                    save(next); // 確保每次狀態更新都同步存檔
+                    const data = { groups: next, appTitle: appTitle, customEventName: customEventName };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
                     return next;
                 });
             };
@@ -142,16 +155,6 @@
                         setAppTitle(parsed.appTitle || '🌸 末日全能追蹤');
                         setCustomEventName(parsed.customEventName || '限定活動');
                     } catch(e) {}
-                } else {
-                    loadedGroups = [
-                        { id: 'g1', title: '382服 WTF', isOpen: true, accounts: [
-                            { id: 'a1', name: '飄落的蒲公英 ҉͜', daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' },
-                            { id: 'a2', name: '☪淺月夜未央︎৯', daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' }
-                        ]},
-                        { id: 'g4', title: '538服 WTF', isOpen: true, accounts: [
-                            { id: 'a6', name: '小小1號', daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' }
-                        ]}
-                    ];
                 }
 
                 const checkDailyReset = (groupsToCheck, saveImmediate = false) => {
@@ -164,26 +167,19 @@
                     const lastReset = localStorage.getItem('puzzles_survival_last_reset');
                     if (!lastReset || parseInt(lastReset, 10) < currentResetTime) {
                         const newGroups = groupsToCheck.map(g => ({
-                            ...g, accounts: g.accounts.map(a => {
-                                const dec = v => {
-                                    if (!v || v === "" || v === "0") return v;
-                                    const n = parseInt(v, 10);
-                                    return !isNaN(n) ? Math.max(0, n - 1).toString() : v;
-                                };
-                                return { 
-                                    ...a, daily: false, commander: false, hero: false, mall: false, 
-                                    seed: false, special: false, event: false, water: false, 
-                                    dynamicDay: false, customEvent: false, 
-                                    pack: dec(a.pack), mine1: dec(a.mine1), crystal: dec(a.crystal) 
-                                };
-                            })
+                            ...g, accounts: g.accounts.map(a => ({ 
+                                ...a, daily: false, commander: false, hero: false, mall: false, 
+                                seed: false, special: false, event: false, water: false, 
+                                dynamicDay: false, customEvent: false, 
+                                pack: decrementDays(a.pack), 
+                                mine1: decrementDays(a.mine1), 
+                                crystal: decrementDays(a.crystal) 
+                            }))
                         }));
                         localStorage.setItem('puzzles_survival_last_reset', currentResetTime.toString());
                         if (saveImmediate) {
-                            const currentSaved = localStorage.getItem(STORAGE_KEY);
-                            const parsed = currentSaved ? JSON.parse(currentSaved) : { appTitle: '🌸 末日全能追蹤', customEventName: '限定活動' };
-                            parsed.groups = newGroups;
-                            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+                            const data = { groups: newGroups, appTitle: appTitle, customEventName: customEventName };
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
                         }
                         setTimeout(() => showNotify("✨ 換日 8:00：任務與倒數天數已自動重置！"), 800);
                         return newGroups;
@@ -191,8 +187,17 @@
                     return groupsToCheck;
                 };
 
-                loadedGroups = checkDailyReset(loadedGroups, true);
-                setGroups(loadedGroups);
+                const initializedGroups = checkDailyReset(loadedGroups.length ? loadedGroups : [
+                    { id: 'g1', title: '382服 WTF', isOpen: true, accounts: [
+                        { id: 'a1', name: '飄落的蒲公英 ҉͜', daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' },
+                        { id: 'a2', name: '☪淺月夜未央︎৯', daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' }
+                    ]},
+                    { id: 'g4', title: '538服 WTF', isOpen: true, accounts: [
+                        { id: 'a6', name: '小小1號', daily: false, commander: false, hero: false, mall: false, seed: false, special: false, event: false, water: false, dynamicDay: false, customEvent: false, pack: '', mine1: '', crystal: '' }
+                    ]}
+                ], true);
+                
+                setGroups(initializedGroups);
 
                 const getWeekNumber = (d) => {
                     const date = new Date(d.getTime());
@@ -204,7 +209,6 @@
                 setCurrentWeekType(CYCLE_WEEKS[getWeekNumber(new Date()) % 2]);
 
                 const timerId = setInterval(updatePrisonDisplay, 1000);
-                
                 const dailyCheckId = setInterval(() => {
                     setGroups(prev => checkDailyReset(prev, true));
                     setTodayIndex(new Date().getDay());
@@ -217,7 +221,6 @@
             const copyToClipboard = () => {
                 const code = localStorage.getItem(STORAGE_KEY) || '';
                 setBackupText(code);
-                
                 const textArea = document.createElement("textarea");
                 textArea.value = code;
                 textArea.style.position = "fixed";
@@ -305,10 +308,21 @@
                             <div className="flex gap-1.5">
                                 <button onClick={() => { 
                                     setModalConfig({
-                                        isOpen: true, type: 'CONFIRM', title: '確定重置所有勾選？',
+                                        isOpen: true, type: 'CONFIRM', title: '確定重置？',
                                         onConfirm: () => {
-                                            const next = groups.map(g => ({...g, accounts: g.accounts.map(a => ({...a, daily:false, commander:false, hero:false, mall:false, seed:false, special:false, event:false, water:false, dynamicDay:false, customEvent:false}))}));
+                                            const next = groups.map(g => ({
+                                                ...g, accounts: g.accounts.map(a => ({
+                                                    ...a, 
+                                                    daily:false, commander:false, hero:false, mall:false, 
+                                                    seed:false, special:false, event:false, water:false, 
+                                                    dynamicDay:false, customEvent:false,
+                                                    pack: decrementDays(a.pack),
+                                                    mine1: decrementDays(a.mine1),
+                                                    crystal: decrementDays(a.crystal)
+                                                }))
+                                            }));
                                             setGroups(next); save(next);
+                                            showNotify("✅ 已重置勾選並執行天數 -1");
                                         }
                                     });
                                 }} className="p-2.5 bg-pink-50 hover:bg-pink-100 text-pink-500 rounded-xl border border-pink-100 transition-colors"><Icons.Rotate /></button>
@@ -402,7 +416,7 @@
 
                                                         <div className="grid grid-cols-4 gap-1.5">
                                                             {[
-                                                                {key: 'daily', label: '日常'}, {key: 'commander', label: '指揮'}, 
+                                                                {key: 'daily', label: '日常'}, {key: 'commander', label: '指揮官'}, 
                                                                 {key: 'hero', label: '英雄'}, {key: 'mall', label: '商城'},
                                                                 {key: 'seed', label: '種子'}, {key: 'special', label: '特種'}, 
                                                                 {key: 'event', label: '活動'}, {key: 'water', label: '淨水'}
@@ -429,15 +443,13 @@
                                                                                 type="text" 
                                                                                 value={displayValue}
                                                                                 onMouseDown={(e) => {
-                                                                                    // 領獎邏輯：如果顯示「領獎」，點擊則立即重置為 30
                                                                                     if (displayValue === '領獎') {
-                                                                                        e.preventDefault(); // 防止 focus 干擾
+                                                                                        e.preventDefault();
                                                                                         updateAccount(group.id, acc.id, { [c.key]: '30' });
-                                                                                        showNotify(`🎉 ${acc.name} 已重置 30 天：${c.label}`);
+                                                                                        showNotify(`🎉 ${acc.name} 的 ${c.label} 已設為 30 天`);
                                                                                     }
                                                                                 }}
                                                                                 onFocus={(e) => {
-                                                                                    // 如果不是領獎狀態，正常 focus 供輸入
                                                                                     if (displayValue !== '領獎') {
                                                                                         e.target.select();
                                                                                     }
@@ -466,7 +478,7 @@
 
                     {showSync && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
-                            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl animate-modal border border-slate-100">
+                            <div className="bg-white rounded-[2.5rem] w-full max-sm p-6 shadow-2xl animate-modal border border-slate-100">
                                 <h3 className="text-pink-500 font-black mb-4 flex items-center gap-2"><Icons.Sync /> 同步數據</h3>
                                 <textarea className="w-full h-40 bg-slate-50 border border-slate-200 focus:border-pink-400 rounded-2xl p-4 text-[10px] font-mono mb-4 outline-none no-scrollbar transition-colors" value={backupText} onChange={(e) => setBackupText(e.target.value)} placeholder="貼上備份代碼..." />
                                 <div className="grid grid-cols-2 gap-3">
