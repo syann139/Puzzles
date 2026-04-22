@@ -128,11 +128,12 @@
                 return [
                     { key: 'daily', label: '日常', show: true },
                     { key: 'seed', label: '種子', show: true },
-                    { key: 'mall', label: '商城', show: true },
+                    { key: 'mall', label: '商城領獎', show: true },
+                    { key: 'event', label: '通行證', show: true },
                     // 一至三
                     { key: 'firefly', label: '螢火使者', show: isCmdWeek && [1,2,3].includes(day) },
                     { key: 'trial', label: '聯盟試練', show: isHeroWeek && [1,2,3].includes(day) },
-                    { key: 'gacha', label: '777扭蛋', show: isHeroWeek && [1,2,3].includes(day) },
+                    { key: 'gacha', label: '扭蛋抽獎', show: isHeroWeek && [1,2,3].includes(day) },
                     // 奪旗: 一個月一次, 指揮官週一二 (假設週期 28 天)
                     { key: 'flag', label: '奪旗報名', show: isCmdWeek && [1,2].includes(day) && checkPeriodicEvent('2026-04-27', 28, 2) },
                     // 巔峰: 指揮官週一開始維持 10 天
